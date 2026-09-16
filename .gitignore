@@ -12,6 +12,7 @@ web/dist/
 # Local debug artifacts (probe screenshots, one-off scratch files)
 *.log
 .tmp-*
+.commit-msg.txt
 *.png
 .shots/
 
