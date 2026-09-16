@@ -307,8 +307,7 @@ src/worker/index.js       路由、会话、WebSocket 转发、分片接收、�
 src/worker/chat-room.js   消息与文件元数据中心，配额统计，Hibernation 广播
 src/worker/file-store.js  上传会话、文件元数据、Blob 存储与读取
 src/worker/auth.js        HMAC 会话令牌，无账号体系
-functions/api/[[path]].js Pages 代理：/api/* 转发到 Worker
-functions/[[path]].js     Pages 代理：其余路径转发到 Worker
+functions/[[path]].js     Pages 代理：全部路径转发到 Worker（静态资源亦由 Worker 提供）
 web/src/App.jsx           聊天界面、文件柜、空间用量、上传进度
 web/src/lib/upload.js     分片上传、断点续传、暂停恢复
 web/src/lib/useChat.js    WebSocket 自动重连与心跳
@@ -325,3 +324,10 @@ tools/                    端到端验证脚本与开发辅助脚本
 
 内容审核只做了基础防护：类型与大小限制、强制下载、`nosniff`、按 IP 限流。
 没有机器审核，适合熟人小圈子。
+
+## 许可
+
+[MIT](LICENSE) © 2026 梅赛德斯
+
+可以自由使用、修改、分发和商用，只需保留版权声明。软件按原样提供，不附带任何
+担保 —— 这包括数据丢失的风险，所以别把它当成唯一一份重要文件的存放处。
