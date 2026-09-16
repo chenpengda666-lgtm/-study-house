@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="学习屋">
+  <!-- Palette is taken from the page: the pale green of a sender's own message
+       bubbles for the tile, the deep brand green for the house, and the bubble
+       border tone as a hairline edge. -->
+  <rect x="1.5" y="1.5" width="61" height="61" rx="13" fill="#e8f1ec" stroke="#c4dcd1" stroke-width="3"/>
+  <path d="M32 12 L56 33 H49 V52 H15 V33 H8 Z" fill="#1f6f5c"/>
+  <rect x="27" y="38" width="10" height="14" rx="1.5" fill="#e8f1ec"/>
+</svg>

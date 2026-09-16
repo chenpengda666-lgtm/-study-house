@@ -1,0 +1,398 @@
+:root {
+  --ink: #17140f;
+  --paper: #f6f1e7;
+  --paper-2: #efe7d8;
+  --line: #d8cdb8;
+  --accent: #1f6f5c;
+  --accent-2: #b4552d;
+  --muted: #7a6f5d;
+  --radius: 14px;
+  --shadow: 0 1px 0 rgba(23, 20, 15, 0.04), 0 12px 32px -18px rgba(23, 20, 15, 0.45);
+  --font-ui: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  font-family: var(--font-ui);
+  color: var(--ink);
+  background: var(--paper);
+  background-image:
+    radial-gradient(1200px 600px at 12% -10%, #fffdf8 0%, transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, #f0ece0 0%, transparent 55%),
+    repeating-linear-gradient(0deg, transparent 0 27px, rgba(23,20,15,0.028) 27px 28px);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------ layout */
+
+.shell {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 18px;
+  padding: 18px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ header */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #fffdf8, #f7f2e7);
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.brand-sub {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.spacer { flex: 1; }
+
+/* Shared notice bar, sitting between the brand and the status pill. It doubles
+   as its own edit affordance: the resting state is a dashed outline that only
+   becomes visible on hover, so an empty notice does not look like a defect. */
+.bulletin-text,
+.bulletin-input {
+  flex: 1;
+  min-width: 0;
+  margin: 0 4px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  border-radius: 999px;
+  text-align: center;
+}
+
+.bulletin-text {
+  background: transparent;
+  border: 1px dashed transparent;
+  color: var(--ink);
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.bulletin-text:hover {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.bulletin-text.empty {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.bulletin-input {
+  background: #fff;
+  border: 1px solid var(--accent);
+  color: var(--ink);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(31, 111, 92, 0.12);
+}
+
+.bulletin-input::placeholder {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+@media (max-width: 640px) {
+  .bulletin-text,
+  .bulletin-input {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.dot.on { background: var(--accent); box-shadow: 0 0 0 3px rgba(31,111,92,0.16); }
+.dot.off { background: var(--accent-2); }
+
+/* ------------------------------------------------------------------ search */
+
+.searchbar { display: flex; gap: 8px; padding: 10px 18px; border-bottom: 1px solid var(--line); }
+
+input[type="text"], input[type="search"] {
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffdf8;
+  color: var(--ink);
+  min-width: 0;
+}
+
+input:focus-visible, button:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------------ stream */
+
+.stream {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-gutter: stable;
+}
+
+.daymark {
+  align-self: center;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  margin: 6px 0;
+}
+
+.msg { display: flex; gap: 10px; align-items: flex-start; animation: rise 0.24s ease-out both; }
+.msg.mine { flex-direction: row-reverse; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.avatar {
+  width: 34px; height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  font-size: 14px; font-weight: 700;
+  color: #fffdf8;
+  background: var(--accent);
+  border: 1px solid rgba(23,20,15,0.15);
+}
+
+.msg.mine .avatar { background: var(--accent-2); }
+
+.bubble-wrap { max-width: min(72%, 620px); display: flex; flex-direction: column; gap: 4px; }
+.msg.mine .bubble-wrap { align-items: flex-end; }
+
+.meta {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  display: flex; gap: 8px; align-items: baseline;
+}
+
+.bubble {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  font-size: 14.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.msg.mine .bubble { background: #e8f1ec; border-color: #c4dcd1; }
+
+/* -------------------------------------------------------------- file card */
+
+.filecard {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 13px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: #fffdf8;
+  max-width: 100%;
+}
+
+.filename {
+  font-size: 13.5px; font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.filesub { font-size: 11.5px; font-family: var(--font-mono); color: var(--muted); }
+
+/* ----------------------------------------------------------------- compose */
+
+.composer { border-top: 1px solid var(--line); padding: 12px 18px 16px; background: #fbf8f0; }
+
+.composer-row { display: flex; gap: 10px; align-items: flex-end; }
+
+textarea {
+  font: inherit; font-size: 14.5px;
+  flex: 1; resize: none;
+  min-height: 44px; max-height: 168px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffdf8;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+button {
+  font: inherit; font-size: 13.5px; font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 11px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+button:hover:not(:disabled) { transform: translateY(-1px); }
+button:disabled { opacity: 0.42; cursor: not-allowed; }
+button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+button.tiny { padding: 6px 11px; font-size: 12px; border-radius: 9px; }
+button.danger { color: var(--accent-2); border-color: #e0c3b6; }
+button.danger:hover:not(:disabled) { background: #fbeee8; }
+
+/* Tombstoned uploads keep their place in the transcript but read as inert. */
+.filecard.gone { border-style: solid; border-color: #e2d9c8; background: var(--paper-2); opacity: 0.72; }
+.filecard.gone .filename { color: var(--muted); text-decoration: line-through; }
+
+/* ------------------------------------------------------------ side panel */
+
+.panel-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--muted); padding: 14px 16px 8px; font-weight: 700;
+}
+
+/* Storage readout: usage sits at the right edge of the heading row. */
+.cap-usage {
+  margin-left: auto;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-transform: none;
+  font-family: var(--font-mono);
+}
+
+.cap-left {
+  text-align: right;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  padding: 3px 16px 0;
+  font-weight: 500;
+}
+
+.cap-left.warn { color: #9a6b12; }
+.cap-left.bad { color: var(--accent-2); }
+
+.cap-bar {
+  height: 4px;
+  margin: 5px 16px 4px;
+  background: var(--paper-2);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.cap-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+.cap-bar.warn > i { background: #c99a24; }
+.cap-bar.bad > i { background: var(--accent-2); }
+
+.filelist { flex: 1; overflow-y: auto; padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+
+.fileitem {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 10px 12px;
+  background: #fffdf8;
+  display: flex; flex-direction: column; gap: 6px;
+}
+
+.fileitem-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+
+.upload-stack { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; background: #fbf8f0; }
+
+.upload {
+  border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px;
+  background: #fffdf8; display: flex; flex-direction: column; gap: 7px;
+}
+
+.bar { height: 6px; background: var(--paper-2); border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+.bar > i { display: block; height: 100%; background: var(--accent); transition: width 0.2s ease; }
+.bar.paused > i { background: var(--accent-2); }
+
+.notice { font-size: 12px; color: var(--accent-2); font-family: var(--font-mono); }
+
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.7; }
+
+.drophint {
+  position: fixed; inset: 0; z-index: 40;
+  display: grid; place-items: center;
+  background: rgba(23, 20, 15, 0.5);
+  backdrop-filter: blur(3px);
+  color: var(--paper);
+  font-size: 18px; letter-spacing: 0.06em;
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; padding: 0; gap: 0; height: 100dvh; }
+  .column { border-radius: 0; border-left: 0; border-right: 0; }
+  .side { display: none; }
+  .side.open { display: flex; position: fixed; inset: 0; z-index: 30; }
+  .bubble-wrap { max-width: 82%; }
+}

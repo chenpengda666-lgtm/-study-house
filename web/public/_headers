@@ -1,0 +1,23 @@
+# Cache policy.
+#
+# Bundles carry a content hash in the filename, so their bytes never change for
+# a given URL and can be cached indefinitely. The HTML shell must not be cached:
+# it is the file that points at the new hashes, so a stale copy would pin the
+# browser to an old bundle.
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/
+  Cache-Control: no-cache, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, must-revalidate
+
+# Icons are cached aggressively by browsers, and a stale one is hard to shake
+# loose, so let them revalidate on every load.
+/favicon.ico
+  Cache-Control: no-cache, must-revalidate
+
+/favicon.svg
+  Cache-Control: no-cache, must-revalidate

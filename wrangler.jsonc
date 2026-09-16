@@ -1,0 +1,40 @@
+{
+  "name": "cf-chat",
+  "main": "src/worker/index.js",
+  "compatibility_date": "2025-03-01",
+
+  // Serves the built frontend. With no run_worker_first, any path that exists
+  // in web/dist is served as a static file and never reaches the Worker.
+  "assets": {
+    "directory": "./web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+
+  "observability": { "enabled": true },
+
+  // Daily sweep that reclaims R2 objects for files deleted more than 24h ago.
+  "triggers": {
+    "crons": ["17 4 * * *"]
+  },
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "CHAT_ROOMS", "class_name": "ChatRoom" },
+      { "name": "FILE_STORE", "class_name": "FileStore" },
+      { "name": "BLOB_STORE", "class_name": "BlobStore" }
+    ]
+  },
+  // Workers Free plan only supports SQLite-backed Durable Objects.
+  // Using new_classes (KV backend) here would fail on the free plan.
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ChatRoom", "FileStore"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["BlobStore"]
+    }
+  ]
+}

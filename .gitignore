@@ -1,0 +1,21 @@
+# Dependencies and build output
+node_modules/
+web/dist/
+
+# Cloudflare local state and local-only secrets.
+# Production secrets live on Cloudflare via `wrangler secret put`, never here.
+.wrangler/
+.dev.vars
+.env
+.env.*
+
+# Local debug artifacts (probe screenshots, one-off scratch files)
+*.log
+.tmp-*
+*.png
+.shots/
+
+# Editor and OS noise
+.DS_Store
+.vscode/
+.idea/

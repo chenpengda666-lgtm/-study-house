@@ -1,0 +1,21 @@
+# Normalise line endings: store LF in the repository, check out native.
+# Without this, Windows checkouts convert every tracked text file and produce a
+# wall of "LF will be replaced by CRLF" warnings on each add.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted.
+*.ico binary
+*.png binary
+*.jpg binary
+*.webp binary
+
+# Keep shell-ish and generated files predictable across platforms.
+*.sh text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.jsonc text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
