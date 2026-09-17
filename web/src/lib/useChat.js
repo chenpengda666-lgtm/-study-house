@@ -28,7 +28,7 @@ function upsert(list, incoming) {
   return merged.slice(-600);
 }
 
-export function useChat({ onMessage, onFileDeleted, onCleared, onNotice } = {}) {
+export function useChat({ onMessage, onFileDeleted, onCleared, onNotice, onRecall } = {}) {
   const [messages, setMessages] = useState([]);
   const [online, setOnline] = useState(0);
   const [status, setStatus] = useState("connecting");
@@ -43,10 +43,12 @@ export function useChat({ onMessage, onFileDeleted, onCleared, onNotice } = {}) 
   const onFileDeletedRef = useRef(onFileDeleted);
   const onClearedRef = useRef(onCleared);
   const onNoticeRef = useRef(onNotice);
+  const onRecallRef = useRef(onRecall);
   onMessageRef.current = onMessage;
   onFileDeletedRef.current = onFileDeleted;
   onClearedRef.current = onCleared;
   onNoticeRef.current = onNotice;
+  onRecallRef.current = onRecall;
 
   const bumpSince = useCallback((id) => {
     if (Number.isFinite(id) && id > (window.__cf_chat_since || 0)) {
@@ -116,6 +118,11 @@ export function useChat({ onMessage, onFileDeleted, onCleared, onNotice } = {}) 
       } else if (data.t === "notice") {
         // The shared notice was edited by someone else.
         onNoticeRef.current?.(data.notice ?? "");
+      } else if (data.t === "msgrecalled") {
+        // A message was retracted. Drop it locally; this also covers the case
+        // where the retraction came from another client.
+        setMessages((prev) => prev.filter((m) => m.id !== data.id));
+        onRecallRef.current?.(data.id);
       } else if (data.t === "error") {
         setError({ scope: data.scope, error: data.error, retryAfter: data.retryAfter });
         setTimeout(() => setError(null), 4000);

@@ -314,6 +314,36 @@ export class ChatRoom extends DurableObject {
     return { msg, delivered };
   }
 
+  // Retracts a message for everyone, with no time limit and no ownership check.
+  //
+  // Both omissions are deliberate. This build has no accounts, so "did you send
+  // this" is not answerable — the same reasoning that lets any visitor delete
+  // any file applies here. A time window would be theatre: anyone who wanted a
+  // message gone could simply retract it within the window. Rate limiting is
+  // what actually matters, so it shares the delete bucket.
+  async recallMessage({ messageId, ip, nick }) {
+    const id = Number(messageId);
+    if (!Number.isInteger(id) || id <= 0) return { error: "bad_id" };
+
+    const rl = this.#takeLimit(`ip:${ip}`, "delete");
+    if (!rl.ok) return { error: "rate_limited", retryAfter: rl.retryAfter, scope: "delete" };
+
+    const row = this.sql
+      .exec(`SELECT id, kind FROM messages WHERE id = ?`, id)
+      .toArray()[0];
+    if (!row) return { error: "not_found" };
+
+    this.sql.exec(`DELETE FROM messages WHERE id = ?`, id);
+
+    // The file itself is left alone. Retracting a card from the conversation is
+    // not a request to destroy the file, which lives in the cabinet
+    // independently and is removed from there.
+    this.#broadcast({ t: "msgrecalled", id, by: String(nick ?? "").slice(0, NICK_MAX) });
+    await this.#keepAlive();
+
+    return { ok: true, id, kind: row.kind };
+  }
+
   async recordUpload({ actorId, nick, fileId, r2Key, storeChannel, name, mime, bytes, sha256, ip }) {
     const size = Number(bytes) || 0;
     if (size <= 0 || size > FILE_MAX_BYTES) {

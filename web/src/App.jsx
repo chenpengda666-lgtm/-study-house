@@ -50,6 +50,8 @@ export default function App() {
   const [bulletin, setBulletin] = useState("");
   const [bulletinDraft, setBulletinDraft] = useState("");
   const [bulletinEditing, setBulletinEditing] = useState(false);
+  // Right-click menu state: { x, y, msgId } while open, null otherwise.
+  const [ctxMenu, setCtxMenu] = useState(null);
 
   const streamRef = useRef(null);
   const textRef = useRef(null);
@@ -88,6 +90,42 @@ export default function App() {
 
   const markDeleted = (fileId) =>
     setDeletedIds((prev) => new Set(prev).add(fileId));
+
+  // Dismisses the context menu on any outside interaction.
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    const onKey = (e) => {
+      if (e.key === "Escape") setCtxMenu(null);
+    };
+    window.addEventListener("click", close);
+    window.addEventListener("contextmenu", close);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("contextmenu", close);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [ctxMenu]);
+
+  const recallMessage = async (msgId) => {
+    setCtxMenu(null);
+    try {
+      const res = await fetch(`/api/msg/${msgId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      // Remove locally right away rather than waiting for the broadcast to come
+      // back; the broadcast still covers other clients and is idempotent here.
+      chat.setMessages((prev) => prev.filter((m) => m.id !== msgId));
+      setNotice("已撤回");
+      setTimeout(() => setNotice(""), 2500);
+    } catch (err) {
+      setNotice(`撤回失败：${err?.message ?? "网络错误"}`);
+      setTimeout(() => setNotice(""), 4000);
+    }
+  };
 
   // Load the shared notice once; later edits arrive over the socket.
   useEffect(() => {
@@ -373,7 +411,13 @@ export default function App() {
             const newDay = !prev || new Date(prev.at).toDateString() !== new Date(msg.at).toDateString();
             const mine = msg.actorId === me.actorId;
             return (
-              <div key={msg.id}>
+              <div
+                key={msg.id}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setCtxMenu({ x: e.clientX, y: e.clientY, msgId: msg.id });
+                }}
+              >
                 {newDay && mode === "live" && <div className="daymark">{formatDay(msg.at)}</div>}
                 <div className={`msg ${mine ? "mine" : ""}`}>
                   <div className="avatar">{avatarText(msg.nick, msg.actorId)}</div>
@@ -547,6 +591,21 @@ export default function App() {
         </div>
       </aside>
 
+
+      {/* Right-click menu. Positioned at the cursor and dismissed by the
+          global listeners above, so it never outlives the interaction. */}
+      {ctxMenu && (
+        <div
+          className="ctxmenu"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <button className="ctxmenu-item danger" onClick={() => recallMessage(ctxMenu.msgId)}>
+            撤回这条消息
+          </button>
+        </div>
+      )}
       {dragging && <div className="drophint">松手即上传</div>}
     </div>
   );

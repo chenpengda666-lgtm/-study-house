@@ -387,6 +387,23 @@ app.post("/api/files/purge", async (c) => {
 
 // ----------------------------------------------------------------- download
 
+// Retracts a message for everyone. No ownership check and no time window — see
+// ChatRoom.recallMessage for why neither could be enforced meaningfully here.
+app.delete("/api/msg/:id", async (c) => {
+  const session = await ensureSession(c, c.env);
+  const res = await roomFor(c.env).recallMessage({
+    messageId: c.req.param("id"),
+    ip: clientIp(c.req.raw),
+    nick: session.nick,
+  });
+  if (res.error === "rate_limited") {
+    return json({ error: "rate_limited", retryAfter: res.retryAfter }, 429);
+  }
+  if (res.error === "bad_id") return json({ error: "bad_id" }, 400);
+  if (res.error === "not_found") return json({ error: "not_found" }, 404);
+  return json(res);
+});
+
 app.get("/api/dl/:uploadId", async (c) => {
   const uploadId = c.req.param("uploadId");
   if (!ID_RE.test(uploadId)) return json({ error: "bad_id" }, 400);

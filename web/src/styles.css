@@ -77,6 +77,41 @@ body {
 
 .spacer { flex: 1; }
 
+/* Right-click menu for a message. Fixed positioning at the cursor keeps it
+   independent of scroll offset and of any ancestor's overflow clipping. */
+.ctxmenu {
+  position: fixed;
+  z-index: 60;
+  min-width: 132px;
+  padding: 4px;
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.ctxmenu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.ctxmenu-item:hover {
+  background: var(--paper-2);
+}
+
+.ctxmenu-item.danger {
+  color: var(--accent-2);
+}
+
 /* Shared notice bar, sitting between the brand and the status pill. It doubles
    as its own edit affordance: the resting state is a dashed outline that only
    becomes visible on hover, so an empty notice does not look like a defect. */
