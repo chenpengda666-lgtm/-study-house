@@ -348,7 +348,7 @@ export default function App() {
           )}
           <button
             className="ghost danger"
-            title="删除全部消息和文件，无法恢复"
+            title="只清空聊天记录，文件柜里的文件会保留"
             onClick={clearHistory}
             disabled={clearing}
           >
