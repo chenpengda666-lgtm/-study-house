@@ -624,6 +624,10 @@ export class ChatRoom extends DurableObject {
     const actorId = url.searchParams.get("a") || "anon";
     const nick = (url.searchParams.get("n") || ANON).slice(0, NICK_MAX);
     const connId = url.searchParams.get("c") || actorId;
+    // The client IP travels in from the Worker because the object cannot see
+    // the original request. It is the rate-limit key; actorId is not usable for
+    // that because /api/session hands out fresh ones to anyone for free.
+    const connIp = url.searchParams.get("ip") || "unknown";
 
     const pair = new WebSocketPair();
     const client = pair[0];
@@ -631,7 +635,7 @@ export class ChatRoom extends DurableObject {
 
     // acceptWebSocket (not server.accept) is what enables hibernation.
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ actorId, nick, connId });
+    server.serializeAttachment({ actorId, nick, connId, ip: connIp });
 
     const recent = this.#queryMessages({
       since: Number(url.searchParams.get("since")) || 0,
@@ -683,7 +687,7 @@ export class ChatRoom extends DurableObject {
         actorId: att.actorId,
         nick: att.nick,
         text: msg.text,
-        ip: att.actorId,
+        ip: att.ip ?? "unknown",
       });
       if (res.error) {
         try {
@@ -696,7 +700,7 @@ export class ChatRoom extends DurableObject {
     }
 
     if (msg.t === "history") {
-      const res = await this.history({ since: msg.since, limit: msg.limit, q: msg.q, ip: att.actorId });
+      const res = await this.history({ since: msg.since, limit: msg.limit, q: msg.q, ip: att.ip ?? "unknown" });
       try {
         ws.send(JSON.stringify({ t: "history", ...res }));
       } catch {

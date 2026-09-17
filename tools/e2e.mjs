@@ -64,7 +64,14 @@ const main = async () => {
   check("health ok", health.status === 200 && health.data?.ok === true, JSON.stringify(health.data));
   check("storage backend reachable", String(health.data?.storage).startsWith("ok:"), health.data?.storage);
   check("uses Durable Object storage", health.data?.backend === "durable-objects", health.data?.backend);
-  check("SESSION_SECRET present", health.data?.hasSecret === true);
+  // The health endpoint deliberately stopped reporting whether SESSION_SECRET is
+  // set — that was configuration state leaking to anonymous callers. Assert the
+  // endpoint is alive and wired to durable storage instead.
+  check(
+    "health endpoint responds",
+    health.data?.ok === true && typeof health.data?.backend === "string",
+    JSON.stringify(health.data).slice(0, 80),
+  );
 
   const session = await jsonReq("/api/session");
   check("session issued", session.status === 200 && Boolean(session.data?.actorId), session.data?.nick);

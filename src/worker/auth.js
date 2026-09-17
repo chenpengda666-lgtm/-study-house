@@ -75,12 +75,13 @@ export function randomId(bytes = 12) {
 
 // Cloudflare sets cf-connecting-ip at the edge and it cannot be spoofed by
 // the client, so it is the only trustworthy source for rate limit keys.
+//
+// x-real-ip is deliberately NOT accepted as a fallback. It is client-controlled
+// and trivially forged, and a spoofable rate-limit key is worse than a broken
+// one: it looks like protection while providing none. If cf-connecting-ip is
+// ever absent, all such requests collapse onto "unknown", which fails closed.
 export function clientIp(request) {
-  return (
-    request.headers.get("cf-connecting-ip") ||
-    request.headers.get("x-real-ip") ||
-    "unknown"
-  );
+  return request.headers.get("cf-connecting-ip") || "unknown";
 }
 
 export function sanitizeNick(raw) {

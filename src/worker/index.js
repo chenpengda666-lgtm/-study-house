@@ -123,7 +123,7 @@ app.get("/api/history", async (c) => {
     since: Number(c.req.query("since")) || 0,
     limit: Number(c.req.query("limit")) || 50,
     q: q ? q.slice(0, 64) : null,
-    ip: session?.actorId ?? clientIp(c.req.raw),
+    ip: clientIp(c.req.raw),
   });
   return json(res, res?.error === "rate_limited" ? 429 : 200);
 });
@@ -156,7 +156,7 @@ app.post("/api/notice", async (c) => {
     text: body.text,
     actorId: session.actorId,
     nick: session.nick,
-    ip: session.actorId,
+    ip: clientIp(c.req.raw),
   });
   return json(res, res.error === "rate_limited" ? 429 : res.error ? 400 : 200);
 });
@@ -190,6 +190,9 @@ app.get("/api/ws", async (c) => {
   target.searchParams.set("a", actorId);
   target.searchParams.set("n", nick);
   target.searchParams.set("c", `${actorId}:${randomId(4)}`);
+  // Rate limits are keyed on the client address, so the trustworthy
+  // cf-connecting-ip value has to travel with the socket into the object.
+  target.searchParams.set("ip", clientIp(c.req.raw));
 
   // Rooms exist so tests can isolate presence; the UI always uses "main".
   const room = /^[A-Za-z0-9_-]{1,32}$/.test(url.searchParams.get("room") ?? "")
@@ -314,7 +317,7 @@ app.delete("/api/files/:fileId", async (c) => {
     fileId,
     actorId: session.actorId,
     nick: session.nick,
-    ip: session.actorId,
+    ip: clientIp(c.req.raw),
   });
 
   if (result.error === "rate_limited") {
@@ -351,7 +354,7 @@ app.delete("/api/files/:fileId", async (c) => {
 // see ChatRoom.clearAll for why the two are managed separately.
 app.post("/api/clear", async (c) => {
   const session = await ensureSession(c, c.env);
-  const cleared = await roomFor(c.env).clearAll({ ip: session.actorId });
+  const cleared = await roomFor(c.env).clearAll({ ip: clientIp(c.req.raw) });
   if (cleared?.error === "rate_limited") {
     return json({ error: "rate_limited", retryAfter: cleared.retryAfter }, 429);
   }
@@ -391,7 +394,7 @@ app.get("/api/dl/:uploadId", async (c) => {
   const session = await peekSession(c, c.env);
   const grant = await roomFor(c.env).takeDownload({
     fileId: uploadId,
-    ip: session?.actorId ?? clientIp(c.req.raw),
+    ip: clientIp(c.req.raw),
   });
   if (grant.error === "rate_limited") {
     return json({ error: "rate_limited", retryAfter: grant.retryAfter }, 429);
@@ -504,11 +507,12 @@ app.get("/api/health", async (c) => {
   } catch (err) {
     storage = `error:${String(err?.message ?? err).slice(0, 80)}`;
   }
+  // Deliberately does not report whether SESSION_SECRET is configured: that is
+  // deployment state, and an anonymous caller has no reason to receive it.
   return json({
     ok: true,
     storage,
     backend: "durable-objects",
-    hasSecret: Boolean(c.env.SESSION_SECRET),
     time: Date.now(),
   });
 });

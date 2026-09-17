@@ -429,7 +429,6 @@ export class FileStore extends DurableObject {
       return { error: "incomplete", received: stat.parts, expected };
     }
 
-    this.sql.exec(`UPDATE uploads SET status = 'done', received = ? WHERE upload_id = ?`, stat.parts, uploadId);
 
     const recorded = await this.#recordInRoom({
       actorId: rec.actor_id,
@@ -441,7 +440,24 @@ export class FileStore extends DurableObject {
       bytes: stat.used,
     });
 
-    return { ok: true, uploadId, size: stat.used, parts: stat.parts, message: recorded?.msg ?? null };
+      // The room enforces the quota. If it refuses the record, the bytes must not be
+      // left behind: an upload that was never accepted would otherwise occupy storage
+      // that no counter accounts for, and the purge sweep cannot find it either,
+      // because a missing row gives the sweep nothing to work from.
+      if (recorded?.error) {
+        try {
+          await this.#blobFor(rec.channel).purge();
+        } catch {
+          /* already gone, which is equally acceptable */
+        }
+        this.sql.exec('UPDATE uploads SET status = ? WHERE upload_id = ?', "failed", uploadId);
+        return recorded;
+      }
+
+      // Only now is the upload genuinely finished.
+      this.sql.exec(`UPDATE uploads SET status = 'done', received = ? WHERE upload_id = ?`, stat.parts, uploadId);
+
+      return { ok: true, uploadId, size: stat.used, parts: stat.parts, message: recorded?.msg ?? null };
   }
 
   async abortUpload(uploadId) {
