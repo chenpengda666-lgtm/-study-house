@@ -312,13 +312,46 @@ node tools/e2e.mjs https://chat.example.com 3   # 上传→广播→下载→Ran
 node tools/ws-test.mjs https://chat.example.com      # 握手→广播→历史→心跳→限流
 node tools/presence-test.mjs https://chat.example.com # 在线人数精确序列
 node tools/quota-test.mjs https://chat.example.com    # 用量增减、删除释放、超限拦截
-node tools/clear-files.mjs https://chat.example.com   # 清空文件柜（保留聊天记录）
 node tools/probe-roundtrip.mjs http://127.0.0.1:8787 300    # 逐字节往返校验
 node tools/seed-ux.mjs http://127.0.0.1:8787                # 造正常/已删除两种文件看 UI
 ```
 
 `e2e.mjs` 第二个参数是测试文件大小（MB）。已验证 3 MB 与 20 MB（分片上传），
 下载内容逐字节比对一致。
+
+### 测试流量写在自己的房间
+
+**除三个运维脚本外，所有测试脚本都自动带上 `?room=test`**，写入一个与真实房间
+完全隔离的 Durable Object：
+
+```
+真实房间  main   你的消息、你的文件、你的配额
+测试房间  test   所有 probe / audit / e2e 脚本的数据
+```
+
+房间名映射到不同的 Durable Object 实例，**各自有独立的 SQLite**，所以测试既看不到
+也改不了真实内容 —— 清理测试房间对 main 零影响。这不是靠"记得小心"，而是靠存储
+层面的隔离。
+
+只有 `main` 和 `test` 两个名字被接受，其他值一律回落到 `main`，避免随手一个
+query 参数就把数据散到任意对象里。
+
+**三个有意操作真实房间的脚本**（它们的存在意义就是改动真实数据）：
+
+```
+reset-remote.mjs   清空真实房间的聊天记录（文件保留）
+clear-files.mjs    删除真实房间的文件柜内容（需 --force，且会先列出清单）
+seed-ux.mjs        往真实房间塞演示数据
+```
+
+**用这三个之前先想清楚目标房间。** `clear-files.mjs` 会对非本地目标直接拒绝，
+除非显式加 `--force`；删除前它会打印完整的文件清单 —— 这是最后一道人工确认。
+
+复测隔离是否仍然成立：
+
+```bash
+node tools/probe-room-isolation.mjs https://chat.example.com
+```
 
 ## 接口
 

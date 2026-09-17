@@ -211,6 +211,11 @@ export class FileStore extends DurableObject {
     const cols = new Set(this.sql.exec(`PRAGMA table_info(uploads)`).toArray().map((r) => r.name));
     if (!cols.has("channel")) this.sql.exec(`ALTER TABLE uploads ADD COLUMN channel TEXT`);
     if (!cols.has("received")) this.sql.exec(`ALTER TABLE uploads ADD COLUMN received INTEGER DEFAULT 0`);
+    // Which room this upload belongs to. A Durable Object cannot see its own
+    // name, so the room arrives from the Worker and is stored here — that is how
+    // #recordInRoom knows which ChatRoom to file the finished upload into.
+    // Without it, a test-room upload would land in the real cabinet.
+    if (!cols.has("room")) this.sql.exec(`ALTER TABLE uploads ADD COLUMN room TEXT NOT NULL DEFAULT 'main'`);
   }
 
   #blobFor(channel) {
@@ -219,16 +224,23 @@ export class FileStore extends DurableObject {
     return this.env.BLOB_STORE.get(this.env.BLOB_STORE.idFromName(`blob:${channel}`));
   }
 
-  #roomStub() {
-    return this.env.CHAT_ROOMS.get(this.env.CHAT_ROOMS.idFromName("main"));
+  #roomStub(room = "main") {
+    // Test traffic lives in its own room, so the finished-upload record must be
+    // filed into the matching ChatRoom object rather than always into "main".
+    const name = String(room ?? "main") || "main";
+    return this.env.CHAT_ROOMS.get(this.env.CHAT_ROOMS.idFromName(name));
   }
 
-  async #capacity() {
-    return (await this.#roomStub().fetch(new Request("https://room.internal/capacity"))).json();
+  async #capacity(room = "main") {
+    // Quota is per room, so this must ask the matching ChatRoom object.
+    return (await this.#roomStub(room).fetch(new Request("https://room.internal/capacity"))).json();
   }
 
   async #recordInRoom(payload) {
-    const res = await this.#roomStub().fetch(
+    // The payload carries the room; without forwarding it here the record would
+    // always be filed into "main" and test uploads would surface in the real
+    // cabinet.
+    const res = await this.#roomStub(payload?.room).fetch(
       new Request("https://room.internal/record", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -251,13 +263,15 @@ export class FileStore extends DurableObject {
     const mime = params?.mime;
     const sig = params?.sig;
     const size = Number(params?.bytes) || 0;
+    // Resolved up front because the quota check below is per room.
+    const room = String(params?.room ?? "main").slice(0, 32) || "main";
 
     if (!Number.isFinite(size) || size <= 0) return { error: "bad_size" };
     if (size > MAX_FILE_BYTES) {
       return { error: "too_large", max: MAX_FILE_BYTES, maxFileBytes: MAX_FILE_BYTES };
     }
 
-    const quota = await this.#capacity();
+    const quota = await this.#capacity(room);
     if (quota?.usedBytes + size > quota?.quotaBytes) {
       return {
         error: "quota_exceeded",
@@ -273,7 +287,7 @@ export class FileStore extends DurableObject {
     if (signature) {
       const done = this.sql
         .exec(
-          `SELECT upload_id, channel, name, mime, bytes FROM uploads
+          `SELECT upload_id, channel, name, mime, bytes, room FROM uploads
            WHERE sig = ? AND status = 'done' ORDER BY created_at DESC LIMIT 1`,
           signature,
         )
@@ -287,6 +301,7 @@ export class FileStore extends DurableObject {
           name: done.name,
           mime: done.mime,
           bytes: done.bytes,
+          room: done.room ?? "main",
         });
         if (!recorded?.error) {
           return {
@@ -326,8 +341,8 @@ export class FileStore extends DurableObject {
     const fileId = newFileId();
     const channel = newFileId().slice(0, 32);
     this.sql.exec(
-      `INSERT INTO uploads (upload_id, channel, actor_id, nick, name, mime, bytes, sig, received, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'open', ?)`,
+      `INSERT INTO uploads (upload_id, channel, actor_id, nick, name, mime, bytes, sig, received, status, created_at, room)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'open', ?, ?)`,
       fileId,
       channel,
       String(actorId ?? "anon"),
@@ -337,6 +352,7 @@ export class FileStore extends DurableObject {
       size,
       signature,
       Date.now(),
+      room,
     );
 
     return {
@@ -414,7 +430,7 @@ export class FileStore extends DurableObject {
   async completeUpload(uploadId) {
     const rec = this.sql
       .exec(
-        `SELECT upload_id, channel, actor_id, nick, name, mime, bytes, status FROM uploads WHERE upload_id = ?`,
+        `SELECT upload_id, channel, actor_id, nick, name, mime, bytes, status, room FROM uploads WHERE upload_id = ?`,
         String(uploadId ?? ""),
       )
       .toArray()[0];
@@ -438,6 +454,9 @@ export class FileStore extends DurableObject {
       name: rec.name,
       mime: rec.mime,
       bytes: stat.used,
+      // Without this the record falls back to "main" and a test-room upload
+      // would surface in the real cabinet.
+      room: rec.room ?? "main",
     });
 
       // The room enforces the quota. If it refuses the record, the bytes must not be

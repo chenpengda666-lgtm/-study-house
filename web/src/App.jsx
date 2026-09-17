@@ -415,6 +415,11 @@ export default function App() {
                 key={msg.id}
                 onContextMenu={(e) => {
                   e.preventDefault();
+                  // Stop the event here, otherwise it bubbles to the window
+                  // listener that dismisses the menu — which would close it in
+                  // the same tick it opened. That listener is still needed for
+                  // right-clicks elsewhere on the page.
+                  e.stopPropagation();
                   setCtxMenu({ x: e.clientX, y: e.clientY, msgId: msg.id });
                 }}
               >

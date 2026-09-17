@@ -1,12 +1,18 @@
 // A/B compares the two proxy handoff styles on a real download.
 //
-//   node tools/probe-proxy-modes.mjs [sizeMB]
+//   node tools/probe-proxy-modes.mjs [sizeMB] [baseUrl]
 
-const HOST = "https://your-proxy.pages.dev";
+// Takes the target from the command line so the script is runnable as-is; the
+// previous hard-coded host was replaced by a placeholder during scrub and left
+// the script unusable.
+const HOST = process.argv[3] ?? "http://127.0.0.1:8787";
 const SIZE = Number(process.argv[2] ?? 16) * 1024 * 1024;
 
-async function session(base) {
-  const res = await fetch(`${base}/api/session`, { method: "POST" });
+// Test traffic goes to the test room so it cannot touch real content.
+const R = (p) => `${HOST}${p}${p.includes("?") ? "&" : "?"}room=test`;
+
+async function session() {
+  const res = await fetch(R("/api/session"), { method: "POST" });
   const cookie = (res.headers.get("set-cookie") ?? "").split(";")[0];
   return cookie;
 }
@@ -14,7 +20,7 @@ async function session(base) {
 async function uploadAndTime(cookie) {
   const headers = { cookie, "content-type": "application/json" };
   const init = await (
-    await fetch(`${HOST}/api/up/init`, {
+    await fetch(R("/api/up/init"), {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -32,13 +38,13 @@ async function uploadAndTime(cookie) {
   for (let n = 1; n <= partCount; n++) {
     const start = (n - 1) * partSize;
     const chunk = payload.subarray(start, Math.min(start + partSize, SIZE));
-    await fetch(`${HOST}/api/up/part?uploadId=${init.uploadId}&partNumber=${n}`, {
+    await fetch(R(`/api/up/part?uploadId=${init.uploadId}&partNumber=${n}`), {
       method: "PUT",
       headers: { cookie, "content-length": String(chunk.length) },
       body: chunk,
     });
   }
-  await fetch(`${HOST}/api/up/complete`, {
+  await fetch(R("/api/up/complete"), {
     method: "POST",
     headers,
     body: JSON.stringify({ uploadId: init.uploadId }),
@@ -49,7 +55,7 @@ async function uploadAndTime(cookie) {
 async function timeDownload(cookie, uploadId, mode) {
   const suffix = mode === "wrap" ? "?proxy=wrap" : "";
   const t0 = Date.now();
-  const res = await fetch(`${HOST}/api/dl/${uploadId}${suffix}`, { headers: { cookie } });
+  const res = await fetch(R(`/api/dl/${uploadId}${suffix}`), { headers: { cookie } });
   const reader = res.body.getReader();
   let received = 0;
   let blocks = 0;
@@ -65,7 +71,7 @@ async function timeDownload(cookie, uploadId, mode) {
 
 const main = async () => {
   console.log(`host=${HOST} size=${SIZE / 1048576}MB\n`);
-  const cookie = await session(HOST);
+  const cookie = await session();
   const uploadId = await uploadAndTime(cookie);
   console.log("uploaded\n");
 

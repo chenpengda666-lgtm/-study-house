@@ -37,8 +37,22 @@ function roomFor(env, name = "main") {
   return env.CHAT_ROOMS.get(env.CHAT_ROOMS.idFromName(name));
 }
 
-function fileStore(env) {
-  return env.FILE_STORE.get(env.FILE_STORE.idFromName("global"));
+function fileStore(env, room = "main") {
+  // One FileStore object per room, so a test run's upload sessions live in an
+  // entirely separate SQLite database from real ones.
+  return env.FILE_STORE.get(env.FILE_STORE.idFromName(`global:${room}`));
+}
+
+// Test traffic is routed to its own room.
+//
+// Rooms map to separate Durable Object instances, which means separate storage:
+// nothing a probe, audit or e2e run writes can reach real messages, files or
+// quota. Only the single name "test" is honoured — anything else falls back to
+// the real room, so a stray query parameter cannot scatter data into arbitrary
+// objects or let someone hide content from the cabinet.
+const TEST_ROOM = "test";
+function resolveRoom(c) {
+  return c.req.query("room") === TEST_ROOM ? TEST_ROOM : "main";
 }
 
 // Downloads read blob data straight from the object that holds it. Going through
@@ -119,7 +133,7 @@ app.post("/api/session", sessionHandler);
 app.get("/api/history", async (c) => {
   const session = await peekSession(c, c.env);
   const q = c.req.query("q");
-  const res = await roomFor(c.env).history({
+  const res = await roomFor(c.env, resolveRoom(c)).history({
     since: Number(c.req.query("since")) || 0,
     limit: Number(c.req.query("limit")) || 50,
     q: q ? q.slice(0, 64) : null,
@@ -130,7 +144,7 @@ app.get("/api/history", async (c) => {
 
 app.get("/api/files", async (c) => {
   const q = c.req.query("q");
-  const res = await roomFor(c.env).listFiles({
+  const res = await roomFor(c.env, resolveRoom(c)).listFiles({
     limit: Number(c.req.query("limit")) || 50,
     q: q ? q.slice(0, 64) : null,
   });
@@ -140,7 +154,7 @@ app.get("/api/files", async (c) => {
 // Shared notice shown at the top of the room. Readable without a session so the
 // bar can render before the client has one; writing creates one.
 app.get("/api/notice", async (c) => {
-  const res = await roomFor(c.env).getNotice();
+  const res = await roomFor(c.env, resolveRoom(c)).getNotice();
   return json(res);
 });
 
@@ -152,7 +166,7 @@ app.post("/api/notice", async (c) => {
   } catch {
     return json({ error: "bad_json" }, 400);
   }
-  const res = await roomFor(c.env).setNotice({
+  const res = await roomFor(c.env, resolveRoom(c)).setNotice({
     text: body.text,
     actorId: session.actorId,
     nick: session.nick,
@@ -220,13 +234,14 @@ app.post("/api/up/init", async (c) => {
   } catch {
     return json({ error: "bad_json" }, 400);
   }
-  const res = await fileStore(c.env).createUpload({
+  const res = await fileStore(c.env, resolveRoom(c)).createUpload({
     actorId: session.actorId,
     nick: session.nick,
     name: body.name,
     mime: body.mime,
     bytes: body.bytes,
     sig: body.sig,
+    room: resolveRoom(c),
   });
   const status = res.error === "quota_exceeded" ? 507 : res.error ? 400 : 200;
   return json(res, status);
@@ -252,7 +267,7 @@ app.put("/api/up/part", async (c) => {
   const b64 = bytesToBase64(data);
   const CHUNK = 128 * 1024;
   const total = Math.max(1, Math.ceil(b64.length / CHUNK));
-  const store = fileStore(c.env);
+  const store = fileStore(c.env, resolveRoom(c));
 
   for (let i = 0; i < total; i++) {
     const chunkBase64 = b64.slice(i * CHUNK, (i + 1) * CHUNK);
@@ -285,7 +300,7 @@ app.post("/api/up/complete", async (c) => {
   } catch {
     return json({ error: "bad_json" }, 400);
   }
-  const res = await fileStore(c.env).completeUpload(body.uploadId);
+  const res = await fileStore(c.env, resolveRoom(c)).completeUpload(body.uploadId);
   let status = 200;
   if (res.error === "quota_exceeded") status = 507;
   else if (res.error === "no_parts" || res.error === "incomplete") status = 400;
@@ -302,7 +317,7 @@ app.post("/api/up/abort", async (c) => {
   } catch {
     return json({ error: "bad_json" }, 400);
   }
-  const res = await fileStore(c.env).abortUpload(body.uploadId);
+  const res = await fileStore(c.env, resolveRoom(c)).abortUpload(body.uploadId);
   return json(res);
 });
 
@@ -313,7 +328,7 @@ app.delete("/api/files/:fileId", async (c) => {
   if (!ID_RE.test(fileId)) return json({ error: "bad_id" }, 400);
 
   const session = await ensureSession(c, c.env);
-  const result = await roomFor(c.env).deleteFile({
+  const result = await roomFor(c.env, resolveRoom(c)).deleteFile({
     fileId,
     actorId: session.actorId,
     nick: session.nick,
@@ -334,7 +349,7 @@ app.delete("/api/files/:fileId", async (c) => {
   }
 
   const reclaimed = result.storeChannel
-    ? await fileStore(c.env).deleteBlob({ channel: result.storeChannel })
+    ? await fileStore(c.env, resolveRoom(c)).deleteBlob({ channel: result.storeChannel })
     : { error: "no_channel" };
 
   return json({
@@ -354,7 +369,7 @@ app.delete("/api/files/:fileId", async (c) => {
 // see ChatRoom.clearAll for why the two are managed separately.
 app.post("/api/clear", async (c) => {
   const session = await ensureSession(c, c.env);
-  const cleared = await roomFor(c.env).clearAll({ ip: clientIp(c.req.raw) });
+  const cleared = await roomFor(c.env, resolveRoom(c)).clearAll({ ip: clientIp(c.req.raw) });
   if (cleared?.error === "rate_limited") {
     return json({ error: "rate_limited", retryAfter: cleared.retryAfter }, 429);
   }
@@ -391,7 +406,7 @@ app.post("/api/files/purge", async (c) => {
 // ChatRoom.recallMessage for why neither could be enforced meaningfully here.
 app.delete("/api/msg/:id", async (c) => {
   const session = await ensureSession(c, c.env);
-  const res = await roomFor(c.env).recallMessage({
+  const res = await roomFor(c.env, resolveRoom(c)).recallMessage({
     messageId: c.req.param("id"),
     ip: clientIp(c.req.raw),
     nick: session.nick,
@@ -409,7 +424,7 @@ app.get("/api/dl/:uploadId", async (c) => {
   if (!ID_RE.test(uploadId)) return json({ error: "bad_id" }, 400);
 
   const session = await peekSession(c, c.env);
-  const grant = await roomFor(c.env).takeDownload({
+  const grant = await roomFor(c.env, resolveRoom(c)).takeDownload({
     fileId: uploadId,
     ip: clientIp(c.req.raw),
   });
@@ -519,7 +534,7 @@ app.get("/api/dl/:uploadId", async (c) => {
 app.get("/api/health", async (c) => {
   let storage = "unbound";
   try {
-    const cap = await roomFor(c.env).capacity();
+    const cap = await roomFor(c.env, resolveRoom(c)).capacity();
     storage = cap ? `ok:${cap.fileCount}` : "no-capacity";
   } catch (err) {
     storage = `error:${String(err?.message ?? err).slice(0, 80)}`;

@@ -19,7 +19,7 @@ let cookie = "";
 async function req(path, opts = {}) {
   const headers = new Headers(opts.headers ?? {});
   if (cookie) headers.set("cookie", cookie);
-  const res = await fetch(`${BASE}${path}`, { ...opts, headers });
+  const res = await fetch(`${BASE}${path}${path.includes("?") ? "&" : "?"}room=test`, { ...opts, headers });
   const sc = res.headers.get("set-cookie");
   if (sc) cookie = sc.split(";")[0];
   let data = {};

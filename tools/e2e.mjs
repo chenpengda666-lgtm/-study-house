@@ -19,7 +19,7 @@ function check(label, ok, detail = "") {
 async function req(path, { method = "GET", body, headers = {}, cookie: sendCookie = true } = {}) {
   const h = new Headers(headers);
   if (sendCookie && cookie) h.set("cookie", cookie);
-  const res = await fetch(`${BASE}${path}`, { method, body, headers: h, redirect: "manual" });
+  const res = await fetch(`${BASE}${path}${path.includes("?") ? "&" : "?"}room=test`, { method, body, headers: h, redirect: "manual" });
   const setCookie = res.headers.get("set-cookie");
   if (setCookie) cookie = setCookie.split(";")[0];
   return res;

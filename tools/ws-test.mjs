@@ -21,7 +21,7 @@ async function session(nick) {
 }
 
 function openSocket(token, { since = 0 } = {}) {
-  const url = `${WS_BASE}/api/ws?since=${since}&token=${encodeURIComponent(token)}`;
+  const url = `${WS_BASE}/api/ws?since=${since}&room=test&token=${encodeURIComponent(token)}`;
   const ws = new WebSocket(url);
   const inbox = [];
   const waiters = [];

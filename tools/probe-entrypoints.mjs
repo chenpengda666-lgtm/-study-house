@@ -14,7 +14,7 @@ async function run(label, base) {
   async function req(path, opts = {}) {
     const headers = new Headers(opts.headers ?? {});
     if (cookie) headers.set("cookie", cookie);
-    const res = await fetch(`${base}${path}`, { ...opts, headers });
+    const res = await fetch(`${base}${path}${path.includes("?") ? "&" : "?"}room=test`, { ...opts, headers });
     const setCookie = res.headers.get("set-cookie");
     if (setCookie) cookie = setCookie.split(";")[0];
     return res;
