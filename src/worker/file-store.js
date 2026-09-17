@@ -526,8 +526,12 @@ export class FileStore extends DurableObject {
     }
   }
 
-  // Wipes upload sessions and reclaims the given blob channels. Called by the
-  // full-wipe path, which already knows every channel from the file index.
+  // Wipes every upload session and reclaims the given blob channels.
+  //
+  // NOT used by the transcript-clear path, which deliberately keeps files.
+  // Retained for a possible "empty the entire cabinet" action, which would pass
+  // every channel from the file index; see ChatRoom.clearAll for the reasoning
+  // behind keeping the two concerns separate.
   async clearAll({ channels = [] } = {}) {
     const rows = this.sql.exec(`SELECT COUNT(*) AS cnt FROM uploads`).toArray()[0];
     this.sql.exec(`DELETE FROM uploads`);

@@ -408,6 +408,12 @@ export class ChatRoom extends DurableObject {
 
   // Wipes the transcript, the file index, and the stored bytes. Upload sessions
   // live in FileStore, so those are cleared separately by the caller.
+  // Clears the chat transcript only.
+  //
+  // Files and their stored bytes are deliberately left alone: wiping the
+  // conversation should not destroy files that people may still want, and the
+  // transcript is recoverable from context while a deleted file is not. Files
+  // are removed individually from the cabinet, or not at all.
   async clearAll(params) {
     // ip defaults so a maintenance caller that omits it still gets the limit.
     const scope = params && typeof params === "object" ? String(params.ip ?? "maintenance") : "maintenance";
@@ -415,24 +421,12 @@ export class ChatRoom extends DurableObject {
     if (!rl.ok) return { error: "rate_limited", retryAfter: rl.retryAfter, scope: "delete" };
 
     const msgRow = this.sql.exec(`SELECT COUNT(*) AS cnt FROM messages`).toArray()[0];
-    const fileRow = this.sql.exec(`SELECT COUNT(*) AS cnt FROM files`).toArray()[0];
-    const channels = this.sql
-      .exec(`SELECT DISTINCT store_channel FROM files WHERE store_channel IS NOT NULL`)
-      .toArray()
-      .map((r) => r.store_channel);
-
     this.sql.exec(`DELETE FROM messages`);
-    this.sql.exec(`DELETE FROM files`);
 
     this.#broadcast({ t: "cleared" });
     await this.#keepAlive();
 
-    return {
-      ok: true,
-      messages: Number(msgRow?.cnt ?? 0),
-      files: Number(fileRow?.cnt ?? 0),
-      channels,
-    };
+    return { ok: true, messages: Number(msgRow?.cnt ?? 0) };
   }
 
   async capacity() {

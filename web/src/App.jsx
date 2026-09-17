@@ -80,12 +80,9 @@ export default function App() {
       setFiles((prev) => prev.filter((f) => f.id !== fileId));
       setDeletedIds((prev) => new Set(prev).add(fileId));
     },
-    onCleared: () => {
-      // The hook already dropped its messages; the cabinet needs refreshing too.
-      setFiles([]);
-      setDeletedIds(new Set());
-      setBulletin("");
-    },
+    // No onCleared handler: only the transcript is cleared, and the hook has
+    // already dropped its own messages. The cabinet and file states are
+    // deliberately left untouched.
     onNotice: (text) => setBulletin(text ?? ""),
   });
 
@@ -118,7 +115,7 @@ export default function App() {
   const clearHistory = async () => {
     if (
       !window.confirm(
-        "清空全部聊天记录和文件？\n\n这会删除所有消息、聊天记录里的全部文件，以及文件柜里的文件。删除后无法恢复。",
+        "清空全部聊天记录？\n\n只删除聊天消息，文件柜里的文件会保留。删除后无法恢复。",
       )
     ) {
       return;
@@ -127,12 +124,8 @@ export default function App() {
     try {
       const res = await postJSON("/api/clear", {});
       chat.setMessages([]);
-      setFiles([]);
-      setDeletedIds(new Set());
       window.__cf_chat_since = 0;
-      setNotice(
-        `已清空：${res?.messages ?? 0} 条消息、${res?.files ?? 0} 个文件`,
-      );
+      setNotice(`已清空 ${res?.messages ?? 0} 条聊天记录，文件柜未受影响`);
       setTimeout(() => setNotice(""), 4000);
     } catch (err) {
       setNotice(`清空失败：${err?.message ?? "网络错误"}`);

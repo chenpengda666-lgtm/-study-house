@@ -347,19 +347,15 @@ app.delete("/api/files/:fileId", async (c) => {
 // Wipes the transcript, the file index, and every stored byte. Rate limited
 // inside the object; there are no accounts in this build, so the confirmation
 // lives on the client and this endpoint is deliberately simple.
+// Clears the chat transcript. Files and their bytes are intentionally kept —
+// see ChatRoom.clearAll for why the two are managed separately.
 app.post("/api/clear", async (c) => {
   const session = await ensureSession(c, c.env);
   const cleared = await roomFor(c.env).clearAll({ ip: session.actorId });
   if (cleared?.error === "rate_limited") {
     return json({ error: "rate_limited", retryAfter: cleared.retryAfter }, 429);
   }
-  const store = await fileStore(c.env).clearAll({ channels: cleared?.channels ?? [] });
-  return json({
-    ok: true,
-    messages: cleared?.messages ?? 0,
-    files: cleared?.files ?? 0,
-    blobs: store?.blobs ?? 0,
-  });
+  return json({ ok: true, messages: cleared?.messages ?? 0 });
 });
 
 // Clears the stored bytes for files deleted long enough ago to be unrecoverable.
